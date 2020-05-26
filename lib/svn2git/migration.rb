@@ -32,7 +32,7 @@ module Svn2Git
         ENV["LANGUAGE"]="en_US"
         log "LANGUAGE is: #{ENV["LANGUAGE"]}\n"
       end
-      
+
       if @options[:rebase]
         get_branches
       elsif @options[:rebasebranch]
@@ -388,7 +388,7 @@ module Svn2Git
           # Our --rebase option obviates the need for read-only tracked remotes, however.  So, we'll
           # deprecate the old option, informing those relying on the old behavior that they should
           # use the newer --rebase otion.
-          if status =~ /Cannot setup tracking information/m
+          if status =~ /fatal:.+'#{branch}'.+/
             @cannot_setup_tracking_information = true
             run_command(Svn2Git::Migration.checkout_svn_branch(branch))
           else
@@ -461,13 +461,17 @@ module Svn2Git
         # sub-process's stdin pipe.
         Thread.new do
           loop do
-            user_reply = @stdin_queue.pop
+            begin
+              user_reply = @stdin_queue.pop
 
-            # nil is our cue to stop looping (pun intended).
-            break if user_reply.nil?
+              # nil is our cue to stop looping (pun intended).
+              break if user_reply.nil?
 
-            stdin.puts user_reply
-            stdin.close
+              stdin.puts user_reply
+              stdin.close
+              rescue IOError
+              $stdout.print "No input requested.\n"
+            end
           end
         end
 
@@ -507,7 +511,7 @@ module Svn2Git
       if @git_config_command.nil?
         status = run_command('git config --local --get user.name', false)
 
-        @git_config_command = if status =~ /unknown option/m
+        @git_config_command = if status =~ /error: .+\s.+git config \[.+/m
                                 'git config'
                               else
                                 'git config --local'
