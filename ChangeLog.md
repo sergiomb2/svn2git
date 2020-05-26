@@ -8,10 +8,40 @@
   * Added the ability to specify the '--branches' and '--tags' arguments multiple times (thanks pdf).
   * Fixed a problem with processing of the '--exclude' argument (improper quoting internally) (thanks pdf).
 
+# 2.3.3 - 2016-03-02
+  This is a bugfix release. It provides fix for git localized messages issue, and also fixes "gc is already running" message.
+
+  As git2svn runs git to do it's things (and analyzes it's responses in some points), it is necessary to set LANGUAGE environment variable to "en_US" to fix this kind of error:
+
+    Running command: git branch --track "<some_branch_here>" "remotes/svn/<some_branch_here>"
+    fatal: Не удалось настроить информацию отслеживания; стартовая точка «remotes/svn/<some_branch_here>» не является веткой.
+    ********************************************************************
+    svn2git warning: Tracking remote SVN branches is deprecated.
+    In a future release local branches will be created without tracking.
+    If you must resync your branches, run: svn2git --rebase
+    ********************************************************************
+    Running command: git checkout "<some_branch_here>"
+    error: pathspec '<some_branch_here>' did not match any file(s) known to git.
+    command failed:
+    git checkout "<some_branch_here>"
+
+  Notice localized message of git output. You can fix it with new key `--force-en-us-to-git`.
+
+  Also there was changes in git, which triggers `git gc --auto` after some point of modifications to local git repo, so now svn2git modifies `gc.auto` option, sets it to `0` to disable automatic packing of loose objects.
+  This fixes failing at the end of svn2git script, where it calls `git gc` explicitly:
+
+    Running command: git gc
+    fatal: gc is already running on machine '<machine_name>' pid <pid> (use --force if not)
+    command failed:
+    git gc
+
+  For me, `gc ---auto` starts just after `fetch`, and while svn2git finishes it's work (really fast) it stays running. When svn2git starts `git gc` explicitly, this new process conflicts with already running process, causing an error message.
+
+
 # 2.3.2 - 2014-06-08
 
   This is a bugfix release. It fixes issues running with Windows using MRI ruby and fixes a problem with Ruby 1.8.7.
-  
+
   * Removed open4 dependency. svn2git no longer has any runtime dependencies and things work well on Windows again.
   * Fixed an issue with Ruby 1.8.7, which doesn't implicitly require the 'thread' library meaning classes that library weren't in scope.
 
@@ -23,20 +53,20 @@
   issue a "git pull" to fetch the changes.  git-svn ceased allowing this in 1.8.3.2, which broke svn2git with that
   version of git and all subsequent versions.  The rationale seemed to be in order to prevent pushing changes from
   git-svn back up and breaking the remote link, but this was never something svn2git supported anyway.
-  
+
   Acknowledging the new reality of upstream, the old behavior is retained but deprecated for users of git < 1.8.3.2.
   We'll be removing the establishment of remote tracking SVN branches in the 2.5.0 release.  If you wish to sync back
   with upstream, run `svn2git --rebase`.  If you're on git >= 1.8.3.2 your only option for resynchronizing is to
   use `svn2git --rebase`.
-  
+
   Many thanks to ktdreyer for modernizing the test suite and Daniel Ruf (DanielRuf) for pushing on the git compatibility
   issue.
-  
+
   * Fixed creating local branches for remote SVN branches in git >= 1.8.3.2.
   * Fixed verbose logging of sub-process STDERR stream.
   * Added MIT license metadata to gemspec.
   * Switched to minitest to get tests working on Ruby 1.9+ with minitest 5+ installed.
-  
+
 
 # 2.3.0 - 2014-05-14
 
@@ -112,7 +142,7 @@
 
   Thanks to Francois Rey (fmjrey), Sven Axelsson (svenax), and Julian Taylor (juliantaylor) for submitting all the patches
   that comprise this release.  svn2git now works with a much wider array SVN repositories because of their efforts.
-  
+
   * Added --no-minimize-url option for migrating specific subprojects from an SVN repo containing several projects (thanks fmjrey).
   * Added --username option for migrating password-protected repositories (thanks svenax).
   * Added --revision option for specifying the revision to start importing from (thanks svenax).
@@ -147,7 +177,7 @@
 # 1.3.1 - 2009-06-09
 
   Thanks to KUBO Atsuhiro (iteman) for finding a problem with the tagging process and providing a patch.
-  
+
   * Fixed a problem with creating actual git tags when the SVN tags path was named anything other than 'tags.'
 
 # 1.3.0 - 2009-06-09
@@ -182,14 +212,14 @@
   * Improved docs.
 
 # 1.1.1 - 2009-04-15
-  
+
   * Started using Jeweler for gem management.
   * Fixed issue with not loading up RubyGems appropriately.
 
 # 1.1.0 - 2009-01-02
 
   * First release since nirvdrum fork.
-  
+
   * Fixed issues with handling of tags and branches.
   * Added better logging of output from git-svn.
   * Wrap external command processing to capture failures.
