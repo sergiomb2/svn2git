@@ -261,11 +261,11 @@ module Svn2Git
     end
 
     def get_rebasebranch
-	  get_branches 
+	  get_branches
 	  @local = @local.find_all{|l| l == @options[:rebasebranch]}
 	  @remote = @remote.find_all{|r| r.include? @options[:rebasebranch]}
 
-      if @local.count > 1 
+      if @local.count > 1
         pp "To many matching branches found (#{@local})."
         exit 1
       elsif @local.count == 0
@@ -452,7 +452,7 @@ module Svn2Git
 
       if exit_on_error && $?.exitstatus != 0
         $stderr.puts "command failed:\n#{cmd}"
-        exit -1
+        exit(1)
       end
 
       ret
@@ -472,7 +472,7 @@ module Svn2Git
       status = run_command('git status --porcelain --untracked-files=no')
       unless status.strip == ''
         puts 'You have local pending changes.  The working tree must be clean in order to continue.'
-        exit -1
+        exit(1)
       end
     end
 
