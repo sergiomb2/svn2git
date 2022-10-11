@@ -26,6 +26,13 @@ module Svn2Git
     end
 
     def run!
+      log "LANGUAGE is: #{ENV["LANGUAGE"]}\n"
+      if @options[:forceenustogit]
+        log "Set LANGUAGE environment variable to \"en_US.\"\n"
+        ENV["LANGUAGE"]="en_US"
+        log "LANGUAGE is: #{ENV["LANGUAGE"]}\n"
+      end
+
       if @options[:rebase]
         get_branches
       elsif @options[:rebasebranch]
@@ -37,6 +44,13 @@ module Svn2Git
       fix_tags
       fix_trunk
       optimize_repos
+
+      ensure
+        unless @gc_auto_is_off.nil?
+          run_command("#{git_config_command} --get gc.auto", false)
+          run_command("#{git_config_command} --unset gc.auto")
+          run_command("#{git_config_command} --get gc.auto", false)
+        end
     end
 
     def parse(args)
@@ -54,6 +68,7 @@ module Svn2Git
       options[:username] = nil
       options[:password] = nil
       options[:rebasebranch] = false
+      options[:forceenustogit] = false
 
       if File.exists?(File.expand_path(DEFAULT_AUTHORS_FILE))
         options[:authors] = DEFAULT_AUTHORS_FILE
@@ -136,6 +151,10 @@ module Svn2Git
 
         opts.on('--rebasebranch REBASEBRANCH', 'Rebase specified branch.') do |rebasebranch|
           options[:rebasebranch] = rebasebranch
+        end
+
+        opts.on('--force-en-us-to-git', 'Force en_US locale to be used by git commands, called by this script.') do
+          options[:forceenustogit] = true
         end
 
         opts.separator ""
@@ -224,6 +243,11 @@ module Svn2Git
         run_command(cmd, true, true)
       end
 
+      run_command("#{git_config_command} --get gc.auto", false)
+      run_command("#{git_config_command} gc.auto 0")
+      gc_auto_is_off = true
+      run_command("#{git_config_command} --get gc.auto", false)
+
       run_command("#{git_config_command} svn.authorsfile #{authors}") unless authors.nil?
 
       cmd = "git svn fetch "
@@ -261,11 +285,11 @@ module Svn2Git
     end
 
     def get_rebasebranch
-	  get_branches 
+	  get_branches
 	  @local = @local.find_all{|l| l == @options[:rebasebranch]}
 	  @remote = @remote.find_all{|r| r.include? @options[:rebasebranch]}
 
-      if @local.count > 1 
+      if @local.count > 1
         pp "To many matching branches found (#{@local})."
         exit 1
       elsif @local.count == 0
@@ -330,7 +354,14 @@ module Svn2Git
       svn_branches.delete_if { |b| b.strip !~ %r{^svn\/} }
 
       if @options[:rebase]
-         run_command("git svn fetch", true, true)
+        revision = @options[:revision]
+        cmd = "git svn fetch "
+        unless revision.nil?
+          range = revision.split(":")
+          range[1] = "HEAD" unless range[1]
+          cmd += "-r #{range[0]}:#{range[1]} "
+        end
+        run_command(cmd, true, true)
       end
 
       svn_branches.each do |branch|
@@ -357,7 +388,7 @@ module Svn2Git
           # Our --rebase option obviates the need for read-only tracked remotes, however.  So, we'll
           # deprecate the old option, informing those relying on the old behavior that they should
           # use the newer --rebase otion.
-          if status =~ /Cannot setup tracking information/m
+          if status =~ /fatal:.+'#{branch}'.+/
             @cannot_setup_tracking_information = true
             run_command(Svn2Git::Migration.checkout_svn_branch(branch))
           else
@@ -430,13 +461,17 @@ module Svn2Git
         # sub-process's stdin pipe.
         Thread.new do
           loop do
-            user_reply = @stdin_queue.pop
+            begin
+              user_reply = @stdin_queue.pop
 
-            # nil is our cue to stop looping (pun intended).
-            break if user_reply.nil?
+              # nil is our cue to stop looping (pun intended).
+              break if user_reply.nil?
 
-            stdin.puts user_reply
-            stdin.close
+              stdin.puts user_reply
+              stdin.close
+              rescue IOError
+              $stdout.print "No input requested.\n"
+            end
           end
         end
 
@@ -448,7 +483,7 @@ module Svn2Git
 
       if exit_on_error && $?.exitstatus != 0
         $stderr.puts "command failed:\n#{cmd}"
-        exit -1
+        exit(1)
       end
 
       ret
@@ -468,7 +503,7 @@ module Svn2Git
       status = run_command('git status --porcelain --untracked-files=no')
       unless status.strip == ''
         puts 'You have local pending changes.  The working tree must be clean in order to continue.'
-        exit -1
+        exit(1)
       end
     end
 
@@ -476,7 +511,7 @@ module Svn2Git
       if @git_config_command.nil?
         status = run_command('git config --local --get user.name', false)
 
-        @git_config_command = if status =~ /unknown option/m
+        @git_config_command = if status =~ /error: .+\s.+git config \[.+/m
                                 'git config'
                               else
                                 'git config --local'
@@ -488,4 +523,3 @@ module Svn2Git
 
   end
 end
-
