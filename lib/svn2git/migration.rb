@@ -70,7 +70,7 @@ module Svn2Git
       options[:rebasebranch] = false
       options[:forceenustogit] = false
 
-      if File.exists?(File.expand_path(DEFAULT_AUTHORS_FILE))
+      if File.exist?(File.expand_path(DEFAULT_AUTHORS_FILE))
         options[:authors] = DEFAULT_AUTHORS_FILE
       end
 
