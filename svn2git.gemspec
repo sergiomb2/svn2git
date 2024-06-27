@@ -15,13 +15,13 @@ Gem::Specification.new do |s|
   s.email = "nirvdrum@gmail.com"
   s.executables = ["svn2git"]
   s.extra_rdoc_files = [
-    "ChangeLog.markdown",
-    "README.markdown"
+    "ChangeLog.md",
+    "README.md"
   ]
   s.files = [
-    "ChangeLog.markdown",
+    "ChangeLog.md",
     "MIT-LICENSE",
-    "README.markdown",
+    "README.md",
     "Rakefile",
     "VERSION.yml",
     "bin/svn2git",
